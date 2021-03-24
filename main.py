@@ -1,58 +1,43 @@
 from kivy.app import App
-from jnius import autoclass, cast
+from kivy.lang import Builder
+from kivy.uix.boxlayout import BoxLayout
+import time
+Builder.load_string('''
+<CameraClick>:
+    orientation: 'vertical'
+    Camera:
+        id: camera
+        resolution: (640, 480)
+        play: False
+    ToggleButton:
+        text: 'Play'
+        on_press: camera.play = not camera.play
+        size_hint_y: None
+        height: '48dp'
+    Button:
+        text: 'Capture'
+        size_hint_y: None
+        height: '48dp'
+        on_press: root.capture()
+''')
 
-from PIL import Image
 
-from android import activity, mActivity
-from android.permissions import request_permissions, Permission
-from android.storage import primary_external_storage_path
-request_permissions([Permission.CAMERA, Permission.READ_EXTERNAL_STORAGE])
+class CameraClick(BoxLayout):
+    def capture(self):
+        '''
+        Function to capture the images and give them the names
+        according to their captured time and date.
+        '''
+        camera = self.ids['camera']
+        timestr = time.strftime("%Y%m%d_%H%M%S")
+        camera.export_to_png("IMG_" + timestr)
+        print("Captured")
 
-from kivy.logger import Logger
-from kivy.config import Config
-Config.set('kivy', 'log_level', 'debug')
-Config.set('kivy', 'log_dir', 'logs')
-Config.set('kivy', 'log_name', 'kivy_%y-%m-%d_%_.txt')
-Config.set('kivy', 'log_enable', 1)
-Config.write()
-Logger.debug("DEBUG: primary_external_storage_path")
-Logger.debug("DEBUG: %s", primary_external_storage_path())
 
-Intent = autoclass('android.content.Intent')
-MediaStore = autoclass('android.provider.MediaStore')
-Environment = autoclass('android.os.Environment')
-Context = autoclass("android.content.Context")
-FileProvider = autoclass('android.support.v4.content.FileProvider')
-PythonActivity = autoclass("org.kivy.android.PythonActivity").mActivity
+class TestCamera(App):
 
-class TakePictureApp(App):
-    def take_picture(self):
-        def create_img_file():
-            File = autoclass('java.io.File')
-            storageDir = Context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    def build(self):
+        return CameraClick()
 
-            imageFile = File(
-                storageDir,
-                "temp.jpg"
-            )
-            imageFile.createNewFile()
-            return imageFile
 
-        intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-
-        photoFile = create_img_file()
-        photoUri = FileProvider.getUriForFile(
-            Context.getApplicationContext(),
-            "org.test.takepicture.fileprovider",
-            photoFile
-        )
-
-        parcelable = cast('android.os.Parcelable', photoUri)
-
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, parcelable)
-        mActivity.startActivityForResult(intent, 0x123)
-
-    def on_pause(self):
-        return True
-
-TakePictureApp().run()
+TestCamera().run()
